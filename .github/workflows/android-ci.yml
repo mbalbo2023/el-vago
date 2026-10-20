@@ -29,9 +29,39 @@ jobs:
           gradle-version: '8.9'
       - name: Unit tests, APK and lint
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+      - name: Audit APK signing, package and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -x "$BUILD_TOOLS/aapt"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" > apk-badging.txt
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" > apk-permissions.txt
+          grep -F "package: name='org.elvago.assist'" apk-badging.txt
+          grep -F "sdkVersion:'29'" apk-badging.txt
+          if grep -Eq 'android.permission.(INTERNET|READ_SMS|READ_CONTACTS|RECORD_AUDIO|CAMERA)' apk-permissions.txt; then
+            echo "Unexpected sensitive permission"; exit 1
+          fi
+          sha256sum "$APK" > apk-sha256.txt
+          {
+            echo "## APK distribution audit"
+            echo "- Signature verification: PASS"
+            echo "- Package: org.elvago.assist"
+            echo "- Minimum SDK: 29"
+            echo "- Disallowed sensitive permissions: absent"
+            echo "- This does NOT establish Play Protect acceptance or successful device installation."
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: el-vago-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            apk-badging.txt
+            apk-permissions.txt
+            apk-sha256.txt
           retention-days: 7
