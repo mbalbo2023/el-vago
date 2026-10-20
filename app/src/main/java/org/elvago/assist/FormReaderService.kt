@@ -10,8 +10,8 @@ class FormReaderService : AccessibilityService() {
             private set
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Strictly read-only. No screenshots, clicks, gestures, network, or persistence.
-        if (event?.packageName == packageName) return
+        // MVP test scope: only inspect this app's fictional form, not other apps.
+        if (event?.packageName?.toString() != packageName) return
         val root = rootInActiveWindow ?: return
         try {
             val counts = mutableMapOf<String, Int>()
