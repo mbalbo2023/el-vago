@@ -21,14 +21,17 @@ class FormReaderService : AccessibilityService() {
             while (queue.isNotEmpty() && nodes < 300) {
                 val node = queue.removeFirst()
                 nodes++
-                val cls = node.className?.toString()?.substringAfterLast('.') ?: "Unknown"
-                if (node.isEditable || node.isClickable || node.isCheckable) {
-                    counts[cls] = (counts[cls] ?: 0) + 1
-                }
+                val kind = ControlClassifier.classify(
+                    node.className?.toString() ?: "",
+                    node.isEditable,
+                    node.isCheckable,
+                    node.isClickable
+                )
+                if (kind != null) counts[kind] = (counts[kind] ?: 0) + 1
                 for (i in 0 until node.childCount) node.getChild(i)?.let(queue::add)
                 if (node !== root) node.recycle()
             }
-            latestSummary = "Controles detectados (solo tipos y cantidades):\n" +
+            latestSummary = "Controles detectados (tipos y cantidades):\n" +
                 counts.entries.sortedBy { it.key }.joinToString("\n") { "${it.key}: ${it.value}" } +
                 "\nNodos inspeccionados: $nodes"
         } finally { root.recycle() }
